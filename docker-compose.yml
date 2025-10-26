@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "${PORT}:80"
+    volumes:
+      - ./nginx.comf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app_blue
+      - app_green
+    environment:
+      - ACTIVE_POOL=${ACTIVE_POOL}
+
+  app_blue:
+    image: ${BLUE_IMAGE}
+    ports:
+      - "8081:8081"
+    environment:
+      - RELEASE_ID=${RELEASE_ID_GREEN}
