@@ -14,7 +14,7 @@ services:
       - app_green
 
   app_blue:
-    image: ${BLUE_IMAGE}
+    image: node:18-alpine
     container_name: app_blue
     ports:
       - "8081:80"
@@ -28,7 +28,7 @@ services:
       retries: 3
 
   app_green:
-    image: ${GREEN_IMAGE}
+    image: node:18-alpine
     container_name: app_green
     ports:
       - "8082:80"
