@@ -1,33 +1,59 @@
-http {
-    upstream blue {
-        server app_blue:8081;
-    }
+upstream blue_pool {
+    server app_blue:80;
+}
 
-    upstream green {
-        server app_green:8082;
-    }
+upstream green_pool {
+    server app_green:80;
+}
 
-    server {
-        listen 80;
+server {
+    listen 8080;
 
-        location / {
-            proxy_pass http://$ACTIVE_POOL;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-App-Pool $ACTIVE_POOL;
-            proxy_set_header X-Release-Id $RELEASE_ID;
+    location / {
+
+        proxy_pass http://${ACTIVE_POOL}_pool;
+
+
+        proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
+        proxy_next_upstream_timeout 10s;
+        proxy_next_upstream_tries 2;
+
+        if ($ACTIVE_POOL = 'blue') {
+            proxy_next_upstream_tries 2;
+            proxy_pass http://blue_pool;
+            # Use green as backup
+            error_page 500 502 503 504 = @fallback;
         }
 
-        location /version {
-            proxy_pass http://$ACTIVE_POOL;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-App-Pool $ACTIVE_POOL;
-            proxy_set_header X-Release-Id $RELEASE_ID;
+        if ($ACTIVE_POOL = 'green') {
+            proxy_next_upstream_tries 2;
+            proxy_pass http://green_pool;
+
+            error_page 500 502 503 504 = @fallback_blue;
         }
+
+        proxy_pass_request_headers on;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location @fallback {
+        proxy_pass http://green_pool;
+        proxy_pass_request_headers on;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location @fallback_blue {
+        proxy_pass http://blue_pool;
+        proxy_pass_request_headers on;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
